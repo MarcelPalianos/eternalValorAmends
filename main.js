@@ -7,6 +7,7 @@ const tileTypes = 5;
 let grid = [];
 let selectedTile = null;
 let tileSelection = 0;
+let moveToTile = null;
 
 const socket = new WebSocket("wss://eternalvaloramends.onrender.com");
 
@@ -89,11 +90,14 @@ function handleTileClick(event) {
 if (!selectedTile) {
     selectedTile = { row, col };
     console.log("Selected tile set to:", selectedTile);
+
 }
  else {
-        if (isAdjacent(selectedTile, { row, col })) {
-            animateTileSwap(selectedTile, { row, col }, () => {
-                console.log("Before swap: selectedTile=", selectedTile, "currentClick=", { row, col });
+    moveToTile = {row, col};
+    console.log("Move to tile selected is: ", moveToTile);
+        if (isAdjacent(selectedTile, moveToTile)) {
+            animateTileSwap(selectedTile, moveToTile, () => {
+                console.log("Before swap: selectedTile=", selectedTile, "currentClick=", moveToTile);
                 if (!selectedTile) {
     console.warn("selectedTile is null, cannot swap.");
     return;
@@ -103,9 +107,10 @@ if (!selectedTile) {
                 swapTiles(selectedTile, { row, col });
                 sendMessage({ type: "swapTiles", from: selectedTile, to: { row, col } });
                 setTimeout(() => checkMatches(), 300);
+                selectedTile = null;
+
             });
         }
-        selectedTile = null;
     }
 }
 
