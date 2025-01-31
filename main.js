@@ -74,6 +74,10 @@ function handleTileClick(event) {
 }
 
 function isAdjacent(tile1, tile2) {
+    if (!tile1 || !tile2) {
+        console.error("swapTiles called with invalid tiles:", tile1, tile2);
+        return;
+    }
     const dx = Math.abs(tile1.col - tile2.col);
     const dy = Math.abs(tile1.row - tile2.row);
     return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
