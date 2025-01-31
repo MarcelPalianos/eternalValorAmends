@@ -21,7 +21,36 @@ function createInitialGrid() {
 
 server.on('connection', (ws) => {
     console.log('New player connected.');
-
+    if (data.type === 'matchesFound') {
+        const match = matches.get(ws);
+        if (!match) return;
+    
+        const { grid } = match;
+        data.matches.forEach(({ row, col }) => {
+            grid[row][col] = -1; // Or another placeholder for empty cells
+        });
+    
+        // Fill empty cells
+        for (let col = 0; col < gridSize; col++) {
+            let emptySpots = 0;
+            for (let row = gridSize - 1; row >= 0; row--) {
+                if (grid[row][col] === -1) {
+                    emptySpots++;
+                } else if (emptySpots > 0) {
+                    grid[row + emptySpots][col] = grid[row][col];
+                    grid[row][col] = -1;
+                }
+            }
+            for (let row = 0; row < emptySpots; row++) {
+                grid[row][col] = Math.floor(Math.random() * tileTypes);
+            }
+        }
+    
+        // Send the updated grid to both players
+        match.opponent.send(JSON.stringify({ type: 'updateGrid', grid }));
+        ws.send(JSON.stringify({ type: 'updateGrid', grid }));
+    }
+    
     // If there's a waiting player, match them
     if (waitingPlayer) {
         const opponent = waitingPlayer;
