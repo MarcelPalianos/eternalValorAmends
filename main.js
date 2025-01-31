@@ -10,31 +10,34 @@ let playerRole = "";
 
 const socket = new WebSocket("wss://eternalvaloramends.onrender.com");
 
+
 socket.onopen = () => {
     console.log("Connected to WebSocket server");
 };
 
+const messageHandlers = {
+    playerRole: (data) => {
+        playerRole = data.role;
+        console.log(`You are ${playerRole}`);},
+    initGrid: (data) => handleGridUpdate(data.grid),
+    updateGrid: (data) => handleGridUpdate(data.grid),
+    yourTurn: () => {
+        console.log("It's your turn!");},
+    opponentTurn: () => {
+        console.log("Waiting for opponent...");
+    }
+};
+
 socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
-        if (data.type === "playerRole") {
-        playerRole = data.role; // "Player 1" or "Player 2"
-        console.log(`You are ${playerRole}`);
+    if (messageHandlers[data.type]) {
+        messageHandlers[data.type](data);
+    } else {
+        console.warn("Unhandled message type:", data.type);
     }
-    if (data.type === "initGrid") {
-        grid = data.grid;
-        drawGrid();
-    } else if (data.type === "updateGrid") {
-        grid = data.grid;
-        drawGrid();
-    }
-    if (data.type === "yourTurn") {
-    console.log("It's your turn!");
-    // Enable interaction
-} else if (data.type === "opponentTurn") {
-    console.log("Waiting for opponent...");
-    // Disable interaction
-}
 };
+
+
 
 socket.onclose = () => {
     console.log("Disconnected from WebSocket server");
@@ -59,6 +62,11 @@ function drawGrid() {
 function getColor(type) {
     const colors = ["red", "blue", "green", "yellow", "purple"];
     return colors[type] || "gray";
+}
+
+function handleGridUpdate(newGrid) {
+    grid = newGrid;
+    drawGrid();
 }
 
 function handleTileClick(event) {
