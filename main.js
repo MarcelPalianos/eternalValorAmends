@@ -73,26 +73,33 @@ function handleTileClick(event) {
     const col = Math.floor(event.offsetX / tileSize);
     const row = Math.floor(event.offsetY / tileSize);
 
+    // If there's no previously selected tile, set this as the selected one
     if (!selectedTile) {
-        // First click: select the initial tile
         selectedTile = { row, col };
         console.log("Selected tile set to:", selectedTile);
-    } else {
-        // Second click: attempt a move
-        if (isAdjacent(selectedTile, { row, col })) {
-            // Send the move to the server
-            socket.send(JSON.stringify({
-                type: "playerMove",
-                role: playerRole,
-                from: selectedTile,
-                to: { row, col }
-            }));
-            selectedTile = null;
-        } else {
-            console.warn("Tiles are not adjacent.");
-        }
+        return;
     }
+
+    // If we get here, it means there's already a selected tile
+    const targetTile = { row, col };
+
+    if (isAdjacent(selectedTile, targetTile)) {
+        // If the tiles are adjacent, send the move to the server
+        socket.send(JSON.stringify({
+            type: "playerMove",
+            role: playerRole,
+            from: selectedTile,
+            to: targetTile
+        }));
+    } else {
+        // If not adjacent, warn and leave the selection intact
+        console.warn("Tiles are not adjacent.");
+    }
+
+    // Always clear the selected tile after attempting a move
+    selectedTile = null;
 }
+
 
 
 function isAdjacent(tile1, tile2) {
