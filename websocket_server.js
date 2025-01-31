@@ -32,11 +32,12 @@ server.on('connection', (ws) => {
         matches.set(opponent, { opponent: ws, grid: matchGrid, turn: ws });
 
         // Send initial grid to both players
-        // Example server logic when match is found:
         ws.send(JSON.stringify({ type: 'initGrid', grid: matchGrid, role: 'main' }));
         opponent.send(JSON.stringify({ type: 'initGrid', grid: matchGrid, role: 'opponent' }));
 
-
+        // Notify main player that it’s their turn
+        ws.send(JSON.stringify({ type: 'yourTurn' }));
+        opponent.send(JSON.stringify({ type: 'opponentTurn' }));
     } else {
         // No player waiting, set this player as waiting
         waitingPlayer = ws;
@@ -52,9 +53,14 @@ server.on('connection', (ws) => {
             return;
         }
 
-        const { opponent, grid } = match;
+        const { opponent, grid, turn } = match;
 
         if (data.type === 'playerMove') {
+            if (turn !== ws) {
+                console.warn("Player attempted to move out of turn.");
+                return;
+            }
+
             // Update the grid on the server
             const { from, to } = data;
             const temp = grid[from.row][from.col];
@@ -65,9 +71,11 @@ server.on('connection', (ws) => {
             ws.send(JSON.stringify({ type: 'updateGrid', grid }));
             opponent.send(JSON.stringify({ type: 'updateGrid', grid }));
 
-            // Switch turn
+            // Switch turn and notify players
             match.turn = opponent;
             matches.get(opponent).turn = opponent;
+            ws.send(JSON.stringify({ type: 'opponentTurn' }));
+            opponent.send(JSON.stringify({ type: 'yourTurn' }));
         }
     });
 
