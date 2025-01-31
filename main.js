@@ -1,3 +1,4 @@
+// Game board setup
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -7,45 +8,54 @@ const tileTypes = 5;
 let grid = [];
 let selectedTile = null;
 let playerRole = "";
+let isMyTurn = false;
 
+// WebSocket setup
 const socket = new WebSocket("wss://eternalvaloramends.onrender.com");
-
 
 socket.onopen = () => {
     console.log("Connected to WebSocket server");
 };
 
-const messageHandlers = {
-    playerRole: (data) => {
-        playerRole = data.role;
-        console.log(`You are ${playerRole}`);},
-    initGrid: (data) => handleGridUpdate(data.grid),
-    updateGrid: (data) => handleGridUpdate(data.grid),
-    yourTurn: () => {
-        console.log("It's your turn!");},
-    opponentTurn: () => {
-        console.log("Waiting for opponent...");
-    }
-};
-
 socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    if (messageHandlers[data.type]) {
-        messageHandlers[data.type](data);
-    } else {
-        console.warn("Unhandled message type:", data.type);
+
+    switch (data.type) {
+        case "playerRole":
+            playerRole = data.role;
+            document.getElementById("roleDisplay").textContent = `Your role: ${playerRole}`;
+            break;
+        case "initGrid":
+        case "updateGrid":
+            handleGridUpdate(data.grid);
+            break;
+        case "yourTurn":
+            isMyTurn = true;
+            console.log("It's your turn!");
+            break;
+        case "opponentTurn":
+            isMyTurn = false;
+            console.log("Waiting for opponent...");
+            break;
+        default:
+            console.warn("Unhandled message type:", data.type);
     }
 };
-
-
 
 socket.onclose = () => {
     console.log("Disconnected from WebSocket server");
 };
 
+// Canvas setup
 canvas.width = gridSize * tileSize;
 canvas.height = gridSize * tileSize;
 canvas.addEventListener("click", handleTileClick);
+
+// Game functions
+function handleGridUpdate(newGrid) {
+    grid = newGrid;
+    drawGrid();
+}
 
 function drawGrid() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -64,100 +74,45 @@ function getColor(type) {
     return colors[type] || "gray";
 }
 
-function handleGridUpdate(newGrid) {
-    grid = newGrid;
-    drawGrid();
-}
-
 function handleTileClick(event) {
     const col = Math.floor(event.offsetX / tileSize);
     const row = Math.floor(event.offsetY / tileSize);
 
-    // If there's no previously selected tile, set this as the selected one
-    if (!selectedTile) {
-        selectedTile = { row, col };
-        console.log("Selected tile set to:", selectedTile);
+    if (!isMyTurn) {
+        console.warn("It's not your turn!");
         return;
     }
 
-    // If we get here, it means there's already a selected tile
-    const targetTile = { row, col };
-
-    if (isAdjacent(selectedTile, targetTile)) {
-        // If the tiles are adjacent, send the move to the server
-        socket.send(JSON.stringify({
-            type: "playerMove",
-            role: playerRole,
-            from: selectedTile,
-            to: targetTile
-        }));
+    if (!selectedTile) {
+        selectedTile = { row, col };
+        console.log("Selected tile set to:", selectedTile);
     } else {
-        // If not adjacent, warn and leave the selection intact
-        console.warn("Tiles are not adjacent.");
+        const targetTile = { row, col };
+
+        if (isAdjacent(selectedTile, targetTile)) {
+            socket.send(JSON.stringify({
+                type: "playerMove",
+                role: playerRole,
+                from: selectedTile,
+                to: targetTile
+            }));
+
+            const matches = checkMatches();
+            if (matches.length > 0) {
+                removeMatches(matches);
+            }
+
+            selectedTile = null;
+        } else {
+            console.warn("Tiles are not adjacent.");
+        }
     }
-
-    // Always clear the selected tile after attempting a move
-    selectedTile = null;
 }
-
-
 
 function isAdjacent(tile1, tile2) {
     const dx = Math.abs(tile1.col - tile2.col);
     const dy = Math.abs(tile1.row - tile2.row);
     return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
-}
-
-
-function swapTiles(tile1, tile2) {
-    if (!tile1 || !tile2) {
-        console.error("swapTiles called with invalid tiles:", tile1, tile2);
-        return;
-    }
-    const temp = grid[tile1.row][tile1.col];
-    grid[tile1.row][tile1.col] = grid[tile2.row][tile2.col];
-    grid[tile2.row][tile2.col] = temp;
-    drawGrid();
-}
-
-
-function animateTileSwap(tile1, tile2, onComplete) {
-    const frameCount = 10;
-    const dx = (tile2.col - tile1.col) * tileSize / frameCount;
-    const dy = (tile2.row - tile1.row) * tileSize / frameCount;
-    let currentFrame = 0;
-
-    function animate() {
-        currentFrame++;
-        if (currentFrame > frameCount) {
-            onComplete();
-            return;
-        }
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        for (let row = 0; row < gridSize; row++) {
-            for (let col = 0; col < gridSize; col++) {
-                if ((row === tile1.row && col === tile1.col) || (row === tile2.row && col === tile2.col)) {
-                    continue;
-                }
-                ctx.fillStyle = getColor(grid[row][col]);
-                ctx.fillRect(col * tileSize, row * tileSize, tileSize, tileSize);
-                ctx.strokeStyle = "black";
-                ctx.strokeRect(col * tileSize, row * tileSize, tileSize, tileSize);
-            }
-        }
-
-        ctx.fillStyle = getColor(grid[tile1.row][tile1.col]);
-        ctx.fillRect((tile1.col * tileSize) + (currentFrame * dx), (tile1.row * tileSize) + (currentFrame * dy), tileSize, tileSize);
-
-        ctx.fillStyle = getColor(grid[tile2.row][tile2.col]);
-        ctx.fillRect((tile2.col * tileSize) - (currentFrame * dx), (tile2.row * tileSize) - (currentFrame * dy), tileSize, tileSize);
-
-        requestAnimationFrame(animate);
-    }
-
-    animate();
 }
 
 function checkMatches() {
