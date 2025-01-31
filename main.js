@@ -5,6 +5,7 @@ const gridSize = 8;
 const tileSize = 50;
 let grid = [];
 let selectedTile = null;
+let playerRole = '';
 
 const socket = new WebSocket("wss://eternalvaloramends.onrender.com");
 
@@ -22,6 +23,9 @@ socket.onmessage = (event) => {
     } else if (data.type === "updateGrid") {
         // Receive updated grid after a move
         grid = data.grid;
+        const playerRole = data.role;
+        document.getElementById("roleDisplay").textContent = `Your role: ${playerRole}`;
+ 
         drawGrid();
     } else if (data.type === "opponentDisconnected") {
         console.log("Opponent disconnected. The game has ended.");

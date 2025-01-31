@@ -32,8 +32,10 @@ server.on('connection', (ws) => {
         matches.set(opponent, { opponent: ws, grid: matchGrid, turn: ws });
 
         // Send initial grid to both players
-        ws.send(JSON.stringify({ type: 'initGrid', grid: matchGrid }));
-        opponent.send(JSON.stringify({ type: 'initGrid', grid: matchGrid }));
+        // Example server logic when match is found:
+        ws.send(JSON.stringify({ type: 'initGrid', grid: matchGrid, role: 'main' }));
+        opponent.send(JSON.stringify({ type: 'initGrid', grid: matchGrid, role: 'opponent' }));
+
 
     } else {
         // No player waiting, set this player as waiting
