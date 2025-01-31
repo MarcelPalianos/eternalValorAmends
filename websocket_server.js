@@ -3,96 +3,80 @@ const WebSocket = require('ws');
 const PORT = process.env.PORT || 8080;
 const server = new WebSocket.Server({ port: PORT });
 
-let waitingPlayer = null; // Tracks the waiting player
-let matches = new Map();  // Holds current matches (keyed by WebSocket pair)
-let playerHealth = new Map(); // Tracks health for all players
+let waitingPlayer = null;
+let matches = new Map();
+const gridSize = 8;
+const tileTypes = 5;
+
+function createInitialGrid() {
+    const grid = [];
+    for (let row = 0; row < gridSize; row++) {
+        grid[row] = [];
+        for (let col = 0; col < gridSize; col++) {
+            grid[row][col] = Math.floor(Math.random() * tileTypes);
+        }
+    }
+    return grid;
+}
 
 server.on('connection', (ws) => {
     console.log('New player connected.');
 
-    // If there's a waiting player, pair them up into a match
+    // If there's a waiting player, match them
     if (waitingPlayer) {
-        const match = [waitingPlayer, ws];
-        matches.set(match, { currentTurn: waitingPlayer });
-
-        playerHealth.set(waitingPlayer, 100);
-        playerHealth.set(ws, 100);
-
-        waitingPlayer.send(JSON.stringify({ type: 'matchFound', turn: true, health: 100 }));
-        ws.send(JSON.stringify({ type: 'matchFound', turn: false, health: 100 }));
-
+        const opponent = waitingPlayer;
         waitingPlayer = null;
+
+        const matchGrid = createInitialGrid();
+        matches.set(ws, { opponent, grid: matchGrid, turn: ws });
+        matches.set(opponent, { opponent: ws, grid: matchGrid, turn: ws });
+
+        // Send initial grid to both players
+        ws.send(JSON.stringify({ type: 'initGrid', grid: matchGrid }));
+        opponent.send(JSON.stringify({ type: 'initGrid', grid: matchGrid }));
+
     } else {
-        // No waiting player, so this player waits for someone else to join
+        // No player waiting, set this player as waiting
         waitingPlayer = ws;
         ws.send(JSON.stringify({ type: 'waitingForMatch' }));
     }
 
     ws.on('message', (message) => {
         const data = JSON.parse(message);
+        const match = matches.get(ws);
 
-        // Find which match this player belongs to
-        for (let [match, matchData] of matches.entries()) {
-            if (match.includes(ws)) {
-                const opponent = match[0] === ws ? match[1] : match[0];
+        if (!match) {
+            console.warn("Player sent message, but no match found.");
+            return;
+        }
 
-                if (data.type === 'playerMove') {
-                    // Ensure it's the current player's turn
-                    if (matchData.currentTurn !== ws) {
-                        ws.send(JSON.stringify({ type: 'notYourTurn' }));
-                        return;
-                    }
+        const { opponent, grid } = match;
 
-                    // For demonstration, assume every move deals fixed damage
-                    const damage = 10;
-                    const currentHealth = playerHealth.get(opponent) - damage;
-                    playerHealth.set(opponent, currentHealth);
+        if (data.type === 'playerMove') {
+            // Update the grid on the server
+            const { from, to } = data;
+            const temp = grid[from.row][from.col];
+            grid[from.row][from.col] = grid[to.row][to.col];
+            grid[to.row][to.col] = temp;
 
-                    // Check for game over
-                    if (currentHealth <= 0) {
-                        ws.send(JSON.stringify({ type: 'youWin' }));
-                        opponent.send(JSON.stringify({ type: 'youLose' }));
-                        matches.delete(match);
-                        return;
-                    }
+            // Broadcast updated grid to both players
+            ws.send(JSON.stringify({ type: 'updateGrid', grid }));
+            opponent.send(JSON.stringify({ type: 'updateGrid', grid }));
 
-                    // Update both players with the new state
-                    ws.send(JSON.stringify({
-                        type: 'update',
-                        health: playerHealth.get(ws),
-                        opponentHealth: currentHealth,
-                        turn: false,
-                    }));
-                    opponent.send(JSON.stringify({
-                        type: 'update',
-                        health: currentHealth,
-                        opponentHealth: playerHealth.get(ws),
-                        turn: true,
-                    }));
-
-                    // Switch turns
-                    matchData.currentTurn = opponent;
-                }
-            }
+            // Switch turn
+            match.turn = opponent;
+            matches.get(opponent).turn = opponent;
         }
     });
 
     ws.on('close', () => {
-        console.log('Player disconnected.');
-        if (waitingPlayer === ws) {
-            waitingPlayer = null;
-        } else {
-            // If a player in a match disconnects, end the match
-            for (let [match] of matches.entries()) {
-                if (match.includes(ws)) {
-                    const opponent = match[0] === ws ? match[1] : match[0];
-                    opponent.send(JSON.stringify({ type: 'opponentDisconnected' }));
-                    matches.delete(match);
-                    playerHealth.delete(ws);
-                    playerHealth.delete(opponent);
-                }
-            }
+        const match = matches.get(ws);
+        if (match) {
+            const { opponent } = match;
+            opponent.send(JSON.stringify({ type: 'opponentDisconnected' }));
+            matches.delete(opponent);
         }
+        matches.delete(ws);
     });
 });
 
