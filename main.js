@@ -6,6 +6,7 @@ const tileSize = 50;
 const tileTypes = 5;
 let grid = [];
 let selectedTile = null;
+let playerRole;
 
 const socket = new WebSocket("wss://eternalvaloramends.onrender.com");
 
@@ -15,7 +16,10 @@ socket.onopen = () => {
 
 socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
-
+        if (data.type === "playerRole") {
+        playerRole = data.role; // "Player 1" or "Player 2"
+        console.log(`You are ${playerRole}`);
+    }
     if (data.type === "initGrid") {
         grid = data.grid;
         drawGrid();
@@ -23,6 +27,13 @@ socket.onmessage = (event) => {
         grid = data.grid;
         drawGrid();
     }
+    if (data.type === "yourTurn") {
+    console.log("It's your turn!");
+    // Enable interaction
+} else if (data.type === "opponentTurn") {
+    console.log("Waiting for opponent...");
+    // Disable interaction
+}
 };
 
 socket.onclose = () => {
@@ -55,40 +66,45 @@ function handleTileClick(event) {
     const row = Math.floor(event.offsetY / tileSize);
 
     if (!selectedTile) {
+        // First click: select the initial tile
         selectedTile = { row, col };
         console.log("Selected tile set to:", selectedTile);
     } else {
+        // Second click: attempt a move
         if (isAdjacent(selectedTile, { row, col })) {
-            animateTileSwap(selectedTile, { row, col }, () => {
-                swapTiles(selectedTile, { row, col });
-                const matches = checkMatches();
-                if (matches.length > 0) {
-                    removeMatches(matches);
-                }
-            });
+            // Send the move to the server
+            socket.send(JSON.stringify({
+                type: "playerMove",
+                role: playerRole,
+                from: selectedTile,
+                to: { row, col }
+            }));
+            selectedTile = null;
         } else {
             console.warn("Tiles are not adjacent.");
         }
-        selectedTile = null;
     }
 }
 
+
 function isAdjacent(tile1, tile2) {
-    if (!tile1 || !tile2) {
-        console.error("swapTiles called with invalid tiles:", tile1, tile2);
-        return;
-    }
     const dx = Math.abs(tile1.col - tile2.col);
     const dy = Math.abs(tile1.row - tile2.row);
     return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
 }
 
+
 function swapTiles(tile1, tile2) {
+    if (!tile1 || !tile2) {
+        console.error("swapTiles called with invalid tiles:", tile1, tile2);
+        return;
+    }
     const temp = grid[tile1.row][tile1.col];
     grid[tile1.row][tile1.col] = grid[tile2.row][tile2.col];
     grid[tile2.row][tile2.col] = temp;
     drawGrid();
 }
+
 
 function animateTileSwap(tile1, tile2, onComplete) {
     const frameCount = 10;
