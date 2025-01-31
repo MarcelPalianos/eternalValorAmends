@@ -6,7 +6,7 @@ const tileSize = 50;
 const tileTypes = 5;
 let grid = [];
 let selectedTile = null;
-let playerRole;
+let playerRole = "";
 
 const socket = new WebSocket("wss://eternalvaloramends.onrender.com");
 
