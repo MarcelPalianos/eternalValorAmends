@@ -99,7 +99,10 @@ function handleTileClick(event) {
 
             const matches = checkMatches();
             if (matches.length > 0) {
-                removeMatches(matches);
+                socket.send(JSON.stringify({
+                    type: "matchesFound",
+                    matches: matches
+                }));
             }
 
             selectedTile = null;
