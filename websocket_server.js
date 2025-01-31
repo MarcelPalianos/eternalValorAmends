@@ -35,6 +35,7 @@ server.on('connection', (ws) => {
         // Example server logic when match is found:
         ws.send(JSON.stringify({ type: 'initGrid', grid: matchGrid, role: 'main' }));
         opponent.send(JSON.stringify({ type: 'initGrid', grid: matchGrid, role: 'opponent' }));
+        console.log("Message from server:", data);
 
 
     } else {
