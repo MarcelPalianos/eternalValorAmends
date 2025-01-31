@@ -19,13 +19,12 @@ socket.onmessage = (event) => {
     if (data.type === "initGrid") {
         // Receive the initial grid from the server
         grid = data.grid;
+        const playerRole = data.role; // This should be defined if the server included 'role'
+        document.getElementById("roleDisplay").textContent = `Your role: ${playerRole}`;
         drawGrid();
     } else if (data.type === "updateGrid") {
         // Receive updated grid after a move
         grid = data.grid;
-        const playerRole = data.role;
-        document.getElementById("roleDisplay").textContent = `Your role: ${playerRole}`;
- 
         drawGrid();
     } else if (data.type === "opponentDisconnected") {
         console.log("Opponent disconnected. The game has ended.");
