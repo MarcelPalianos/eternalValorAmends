@@ -23,12 +23,6 @@ socket.onmessage = (event) => {
         // Receive updated grid after a move
         grid = data.grid;
         drawGrid();
-    } else if (data.type === "youWin") {
-        console.log("You win!");
-    } else if (data.type === "youLose") {
-        console.log("You lose!");
-    } else if (data.type === "notYourTurn") {
-        console.log("Not your turn yet!");
     } else if (data.type === "opponentDisconnected") {
         console.log("Opponent disconnected. The game has ended.");
     }
